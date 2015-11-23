@@ -7,5 +7,8 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "thehobbit85 <thehobbit85@gmail.com>",
-  "license": "ISC"
+  "license": "ISC",
+  "dependencies": {
+    "cc-assetid-encoder": "^0.4.3"
+  }
 }
