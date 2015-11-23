@@ -1,0 +1,11 @@
+{
+  "name": "cc-get-assets-outputs",
+  "version": "0.1.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "thehobbit85 <thehobbit85@gmail.com>",
+  "license": "ISC"
+}
