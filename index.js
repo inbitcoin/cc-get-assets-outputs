@@ -74,11 +74,7 @@ module.exports = function (raw_transaction) {
       if (currentAmount < asset.amount) {
         // console.log("found change ")
         if (isPaymentSimple(currentPayment)) {
-           // if we already encoded the last output then just set the correct amount
-          var prev = assets[transaction_data.vout.length - 1] ? assets[transaction_data.vout.length - 1].length - 1 : false
-          if (prev && assets[transaction_data.vout.length - 1][prev].assetId === asset.assetId) {
-            assets[transaction_data.vout.length - 1][prev].amount = asset.amount
-          } else if (!assets[transaction_data.vout.length - 1]) { // put chnage in last output
+          if (!assets[transaction_data.vout.length - 1]) { // put chnage in last output
             assets[transaction_data.vout.length - 1] = []
           }
           assets[transaction_data.vout.length - 1].push({
