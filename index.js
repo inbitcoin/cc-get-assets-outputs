@@ -44,7 +44,7 @@ module.exports = function (raw_transaction) {
       for (var i = paymentIndex;
         i < ccdata.payments.length
         && (currentAmount <= asset.amount)
-        && ccdata.payments[i].input === currentIndex; paymentIndex++, i++) {
+        && ccdata.payments[i].input <= currentIndex; paymentIndex++, i++) {
         currentPayment = ccdata.payments[i]
         var actualAmount = overflow ? overflow : currentPayment.amountOfUnits
         overflow = 0
