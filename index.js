@@ -46,9 +46,9 @@ module.exports = function (raw_transaction) {
         && (currentAmount <= asset.amount)
         && ccdata.payments[i].input <= currentIndex; paymentIndex++, i++) {
         currentPayment = ccdata.payments[i]
-        var actualAmount = overflow ? overflow : currentPayment.amountOfUnits
+        var actualAmount = overflow ? overflow : currentPayment.amount
         overflow = 0
-        // console.log("checking for asset with amount at: " + currentPayment.output + "  " + currentPayment.amountOfUnits)
+        // console.log("checking for asset with amount at: " + currentPayment.output + "  " + currentPayment.amount)
         if (isPaymentSimple(currentPayment)) {
           // console.log("paymet is simple")
           if (isInOutputsScope(currentPayment.output, transaction_data.vout)) {
