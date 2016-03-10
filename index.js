@@ -27,7 +27,7 @@ module.exports = function (raw_transaction) {
       amount: ccdata.amount,
       issueTxid: transaction_data.txid,
       divisibility: ccdata.divisibility,
-      lockStatus: ccdata.lockStatus && ccdata.noRules
+      lockStatus: ccdata.lockStatus
     })
     // console.log(transaction_data.vin[0].assets)
   }
