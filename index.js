@@ -101,10 +101,12 @@ function transfer (assets, payments, transaction_data) {
 
     while (currentAssetIndex < _inputs[currentInputIndex].assets.length && payment.amount > 0) {
       currentAsset = _inputs[currentInputIndex].assets[currentAssetIndex]
-      // check if THERE IS a next asset in assets array in SAME INPUT, and whether it is of the same assetId and aggregatable
+      // check if THERE IS a next asset in assets array (in the same input OR the next one), and whether it is of the same assetId and aggregatable
       if (!currentAsset) {
-        transaction_data.overflow = true
-        return false
+        // no next asset in same input, try with the next input
+        currentAssetIndex = 0
+        currentInputIndex++
+        continue
       }
 
       if (currentAsset.assetId !== _inputs[payment.input].assets[currentAssetIndex - 1].assetId ||
@@ -112,12 +114,13 @@ function transfer (assets, payments, transaction_data) {
         transaction_data.overflow = true
         return false
       }
-
       currentAmount = Math.min(payment.amount, currentAsset.amount)
       assets[payment.output][assets[payment.output].length - 1].amount += currentAmount
       currentAsset.amount -= currentAmount
       payment.amount -= currentAmount
-      currentAssetIndex++
+      if (currentAsset.amount === 0) {
+        currentAssetIndex++
+      }
     }
 
     if (payment.amount > 0) {

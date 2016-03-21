@@ -281,6 +281,45 @@ it('Transfer - should transfer the entire amount to last output, when there is a
   done()
 })
 
+it('Transfer - should transfer correct amounts, when there is an overflow to the same aggregatable assetId asset with a different input', function (done) {
+  transferTx.ccdata[0].payments = [
+    {
+      'input': 0,
+      'amount': 13, // that's an overflow , but to the same aggregatable asset-id
+      'output': 0,
+      'range': false,
+      'percent': false
+    },
+    {
+      'input': 0,
+      'amount': 2,
+      'output': 2,
+      'range': false,
+      'percent': false
+    },
+    {
+      'input': 1,
+      'amount': 5,
+      'output': 2,
+      'range': false,
+      'percent': false
+    }
+  ]
+  var res = get_assets_outputs(transferTx)
+  console.log(JSON.stringify(res, null, 2))
+  assert.equal(Array.isArray(res), true)
+  assert.equal(res.length, 3)
+  assert.equal(Array.isArray(res[0]), true)
+  assert.equal(res[0].length, 1)
+  assert.equal(res[0][0].amount, 13)
+  assert.equal(Array.isArray(res[2]), true)
+  assert.equal(res[2].length, 3)
+  assert.equal(res[2][0].amount, 2)
+  assert.equal(res[2][1].amount, 5)
+  assert.equal(res[2][2].amount, 1)  // change - we keep it separated because we respect the payment
+  done()
+})
+
 it('Transfer - should transfer the entire amount to last output, when there is an overflow in total amount. If assets are NOT aggregatable - should keep them separated.', function (done) {
   transferTx.vin.forEach(function (vin) {
     vin.assets.forEach(function (asset) {
