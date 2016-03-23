@@ -11,6 +11,6 @@
   "author": "thehobbit85 <thehobbit85@gmail.com>",
   "license": "ISC",
   "dependencies": {
-    "cc-assetid-encoder": "git+https://github.com/Colored-Coins/cc-get-assets-outputs.git#aggregatable_assets"
+    "cc-assetid-encoder": "git+https://github.com/Colored-Coins/AssetId.git#aggregatable_assets"
   }
 }
