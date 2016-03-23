@@ -7,24 +7,9 @@ module.exports = function (raw_transaction) {
   var assets = []
   if (ccdata.type === 'issuance') {
     console.log('issuance !')
-    var opts = {
-      'cc_data': [{
-        type: 'issuance',
-        lockStatus: ccdata.lockStatus,
-        divisibility: ccdata.divisibility,
-        aggregationPolicy: ccdata.aggregationPolicy
-      }],
-      'vin': [{
-        txid: transaction_data.vin[0].txid,
-        vout: transaction_data.vin[0].vout
-      }]
-    }
-    if (!opts.cc_data[0].lockStatus) {
-      opts.vin[0].address = transaction_data.vin[0].previousOutput.addresses[0]
-    }
     transaction_data.vin[0].assets = transaction_data.vin[0].assets || []
     transaction_data.vin[0].assets.unshift({
-      assetId: assetIdencoder(opts),
+      assetId: assetIdencoder(transaction_data),
       amount: ccdata.amount,
       issueTxid: transaction_data.txid,
       divisibility: ccdata.divisibility,
