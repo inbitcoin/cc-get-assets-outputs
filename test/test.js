@@ -285,7 +285,38 @@ it('Transfer - should transfer correct amounts, when there is an overflow to the
   transferTx.ccdata[0].payments = [
     {
       'input': 0,
-      'amount': 13, // that's an overflow , but to the same aggregatable asset-id
+      'amount': 10,
+      'output': 0,
+      'range': false,
+      'percent': false
+    },
+    {
+      'input': 0,
+      'amount': 10, // that's an overflow, but to the same aggregatable asset-id within the next input
+      'output': 2,
+      'range': false,
+      'percent': false
+    }
+  ]
+  var res = get_assets_outputs(transferTx)
+  console.log(JSON.stringify(res, null, 2))
+  assert.equal(Array.isArray(res), true)
+  assert.equal(res.length, 3)
+  assert.equal(Array.isArray(res[0]), true)
+  assert.equal(res[0].length, 1)
+  assert.equal(res[0][0].amount, 10)
+  assert.equal(Array.isArray(res[2]), true)
+  assert.equal(res[2].length, 2)
+  assert.equal(res[2][0].amount, 10) // aggregate
+  assert.equal(res[2][1].amount, 1)  // change - we keep it separated because we respect the payment
+  done()
+})
+
+it('Transfer - should transfer correct amounts, when there is an overflow to the same aggregatable assetId asset within the same input', function (done) {
+  transferTx.ccdata[0].payments = [
+    {
+      'input': 0,
+      'amount': 13, // that's an overflow, but to the same aggregatable asset-id within the same input
       'output': 0,
       'range': false,
       'percent': false
@@ -321,6 +352,15 @@ it('Transfer - should transfer correct amounts, when there is an overflow to the
 })
 
 it('Transfer - should transfer the entire amount to last output, when there is an overflow in total amount. If assets are NOT aggregatable - should keep them separated.', function (done) {
+  transferTx.ccdata[0].payments = [
+    {
+      'input': 0,
+      'amount': 100,
+      'output': 0,
+      'range': false,
+      'percent': false
+    }
+  ]
   transferTx.vin.forEach(function (vin) {
     vin.assets.forEach(function (asset) {
       asset.aggregationPolicy = 'dispersed'
@@ -362,8 +402,10 @@ it('Transfer - should transfer the entire amount to last output, when there is a
       'percent': false
     }
   ]
+  transferTx.overflow = false // reset overflow
   var res = get_assets_outputs(transferTx)
   console.log(JSON.stringify(res, null, 2))
+  assert.equal(transferTx.overflow, true)
   assert.equal(Array.isArray(res), true)
   assert.equal(res.length, 3)
   assert.equal(Array.isArray(res[2]), true)

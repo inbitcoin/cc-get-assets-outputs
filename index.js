@@ -40,6 +40,7 @@ function transfer (assets, payments, transaction_data) {
   var payment
   var currentAsset
   var currentAmount
+  var samePayment   // aggregate only if paying the same payment
   for (var i = 0; i < _payments.length; i++) {
     payment = _payments[i]
     debug('payment = ', payment)
@@ -48,7 +49,7 @@ function transfer (assets, payments, transaction_data) {
     }
 
     if (!payment.amount) {
-      debug('payment with amount 0, continue')
+      debug('payment.amount === 0 before paying it, continue')
       continue
     }
 
@@ -65,7 +66,7 @@ function transfer (assets, payments, transaction_data) {
       currentAssetIndex = 0
     }
 
-    if (!_inputs[currentInputIndex].assets || !_inputs[currentInputIndex].assets || !_inputs[currentInputIndex].assets[currentAssetIndex]) {
+    if (currentInputIndex >= _inputs.length || !_inputs[currentInputIndex].assets || currentAssetIndex >= _inputs[currentInputIndex].assets.length || !_inputs[currentInputIndex].assets[currentAssetIndex]) {
       debug('no asset in current asset index in current input index, overflow')
       transaction_data.overflow = true
       return false
@@ -73,57 +74,46 @@ function transfer (assets, payments, transaction_data) {
 
     currentAsset = _inputs[currentInputIndex].assets[currentAssetIndex]
     currentAmount = Math.min(payment.amount, currentAsset.amount)
+    debug('paying ' + currentAmount + ' ' + currentAsset.assetId + ' from input #' + currentInputIndex + ' asset #' + currentAssetIndex + ' to result index #' + payment.output)
 
     assets[payment.output] = assets[payment.output] || []
-    assets[payment.output].push({
-      assetId: currentAsset.assetId,
-      amount: currentAmount,
-      issueTxid: currentAsset.issueTxid,
-      divisibility: currentAsset.divisibility,
-      lockStatus: currentAsset.lockStatus,
-      aggregationPolicy: currentAsset.aggregationPolicy
-    })
+    debug('assets[' + payment.output + '] = ', assets[payment.output])
+    if (samePayment) {
+      if (!assets[payment.output].length || assets[payment.output][assets[payment.output].length - 1].assetId !== currentAsset.assetId || currentAsset.aggregationPolicy !== 'aggregatable') {
+        debug('tried to pay same payment with a separate asset, overflow')
+        transaction_data.overflow = true
+        return false
+      }
+      debug('aggregating ' + currentAmount + ' of asset ' + currentAsset.assetId + ' from input #' + currentInputIndex + ' asset #' + currentAssetIndex + ' to result index #' + payment.output)
+      assets[payment.output][assets[payment.output].length - 1].amount += currentAmount
+    } else {
+      assets[payment.output].push({
+        assetId: currentAsset.assetId,
+        amount: currentAmount,
+        issueTxid: currentAsset.issueTxid,
+        divisibility: currentAsset.divisibility,
+        lockStatus: currentAsset.lockStatus,
+        aggregationPolicy: currentAsset.aggregationPolicy
+      })
+    }
     currentAsset.amount -= currentAmount
     payment.amount -= currentAmount
     if (currentAsset.amount === 0) {
       currentAssetIndex++
-    }
-
-    if (payment.amount === 0) {
-      debug('payment.amount === 0, continue')
-      continue
-    }
-
-    while (currentAssetIndex < _inputs[currentInputIndex].assets.length && payment.amount > 0) {
-      currentAsset = _inputs[currentInputIndex].assets[currentAssetIndex]
-      // check if THERE IS a next asset in assets array (in the same input OR the next one), and whether it is of the same assetId and aggregatable
-      if (!currentAsset) {
-        // no next asset in same input, try with the next input
+      while (currentInputIndex < _inputs.length && currentAssetIndex > _inputs[currentInputIndex].assets.length - 1) {
         currentAssetIndex = 0
         currentInputIndex++
-        continue
-      }
-
-      if (currentAsset.assetId !== _inputs[payment.input].assets[currentAssetIndex - 1].assetId ||
-          currentAsset.aggregationPolicy !== 'aggregatable') {
-        debug('payment.amount = ' + payment.amount + ', overflow')
-        transaction_data.overflow = true
-        return false
-      }
-      currentAmount = Math.min(payment.amount, currentAsset.amount)
-      assets[payment.output][assets[payment.output].length - 1].amount += currentAmount
-      currentAsset.amount -= currentAmount
-      payment.amount -= currentAmount
-      if (currentAsset.amount === 0) {
-        currentAssetIndex++
       }
     }
 
-    if (payment.amount > 0) {
-      // did not satisfy payment
-      debug('did not satisfy payment, overflow')
-      transaction_data.overflow = true
-      return false
+    debug('input #' + currentInputIndex + ', asset # ' + currentAssetIndex)
+
+    if (payment.amount) {
+      debug('payment not completed, stay on current payment')
+      samePayment = true
+      i--
+    } else {
+      samePayment = false
     }
   }
 
