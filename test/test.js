@@ -339,7 +339,7 @@ it('Transfer - should transfer the entire amount to last output, when there is a
 })
 
 it('Transfer - should transfer the entire amount to last output, when there is an overflow to another asset which is not aggregatable with the previous asset.', function (done) {
-  transferTx.payments = [
+  transferTx.ccdata[0].payments = [
     {
       'input': 0,
       'amount': 13, // that's an overflow
@@ -374,3 +374,49 @@ it('Transfer - should transfer the entire amount to last output, when there is a
   done()
 })
 
+it('Transfer - should not have overflow with payment with amount 0', function (done) {
+  transferTx.overflow = false // reset overflow
+  transferTx.ccdata[0].payments = [
+    {
+      'input': 0,
+      'amount': 10,
+      'output': 0,
+      'range': false,
+      'percent': false
+    },
+    {
+      'input': 0,
+      'amount': 5,
+      'output': 2,
+      'range': false,
+      'percent': false
+    },
+    {
+      'input': 1,
+      'amount': 6,
+      'output': 2,
+      'range': false,
+      'percent': false
+    },
+    {
+      'input': 1,
+      'amount': 0,
+      'output': 2,
+      'range': false,
+      'percent': false
+    }
+  ]
+  var res = get_assets_outputs(transferTx)
+  console.log(JSON.stringify(res, null, 2))
+  assert.equal(transferTx.overflow, false)
+  assert.equal(Array.isArray(res), true)
+  assert.equal(res.length, 3)
+  assert.equal(Array.isArray(res[0]), true)
+  assert.equal(res[0].length, 1)
+  assert.equal(res[0][0].amount, 10)
+  assert.equal(Array.isArray(res[2]), true)
+  assert.equal(res[2].length, 2)
+  assert.equal(res[2][0].amount, 5)
+  assert.equal(res[2][1].amount, 6)
+  done()
+})

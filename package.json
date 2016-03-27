@@ -12,6 +12,7 @@
   "license": "ISC",
   "dependencies": {
     "cc-assetid-encoder": "git+https://github.com/Colored-Coins/AssetId.git#aggregatable_assets",
+    "debug": "^2.2.0",
     "lodash": "^4.6.1"
   }
 }

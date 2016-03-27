@@ -1,4 +1,5 @@
 var assetIdencoder = require('cc-assetid-encoder')
+var debug = require('debug')('cc-get-assets-outputs')
 var _ = require('lodash')
 
 module.exports = function (raw_transaction) {
@@ -22,7 +23,7 @@ module.exports = function (raw_transaction) {
   if (!transfer(assets, payments, transaction_data)) {
     // transfer failed. transfer all assets in inputs to last output, aggregate those possible
     assets.length = 0
-    raw_transaction.overflow = transaction_data.overflow
+    raw_transaction.overflow = transaction_data.overflow || false
     transferToLastOutput(assets, transaction_data.vin, transaction_data.vout.length - 1)
   }
 
@@ -31,6 +32,7 @@ module.exports = function (raw_transaction) {
 
 // returns true if succeeds to apply payments to the given assets array, false if runs into an invalid payment
 function transfer (assets, payments, transaction_data) {
+  debug('transfer')
   var _payments = _.cloneDeep(payments)
   var _inputs = _.cloneDeep(transaction_data.vin)
   var currentInputIndex = 0
@@ -40,8 +42,14 @@ function transfer (assets, payments, transaction_data) {
   var currentAmount
   for (var i = 0; i < _payments.length; i++) {
     payment = _payments[i]
+    debug('payment = ', payment)
     if (!isPaymentSimple(payment)) {
       return false
+    }
+
+    if (!payment.amount) {
+      debug('payment with amount 0, continue')
+      continue
     }
 
     if (payment.input >= transaction_data.vin.length) {
@@ -58,6 +66,7 @@ function transfer (assets, payments, transaction_data) {
     }
 
     if (!_inputs[currentInputIndex].assets || !_inputs[currentInputIndex].assets || !_inputs[currentInputIndex].assets[currentAssetIndex]) {
+      debug('no asset in current asset index in current input index, overflow')
       transaction_data.overflow = true
       return false
     }
@@ -81,6 +90,7 @@ function transfer (assets, payments, transaction_data) {
     }
 
     if (payment.amount === 0) {
+      debug('payment.amount === 0, continue')
       continue
     }
 
@@ -96,6 +106,7 @@ function transfer (assets, payments, transaction_data) {
 
       if (currentAsset.assetId !== _inputs[payment.input].assets[currentAssetIndex - 1].assetId ||
           currentAsset.aggregationPolicy !== 'aggregatable') {
+        debug('payment.amount = ' + payment.amount + ', overflow')
         transaction_data.overflow = true
         return false
       }
@@ -110,6 +121,7 @@ function transfer (assets, payments, transaction_data) {
 
     if (payment.amount > 0) {
       // did not satisfy payment
+      debug('did not satisfy payment, overflow')
       transaction_data.overflow = true
       return false
     }
