@@ -20,12 +20,14 @@ module.exports = function (raw_transaction) {
   }
 
   var payments = ccdata.payments
-  if (!transfer(assets, payments, transaction_data)) {
+  var overflow = !transfer(assets, payments, transaction_data)
+  if (overflow) {
     // transfer failed. transfer all assets in inputs to last output, aggregate those possible
     assets.length = 0
-    raw_transaction.overflow = transaction_data.overflow || false
     transferToLastOutput(assets, transaction_data.vin, transaction_data.vout.length - 1)
   }
+
+  raw_transaction.overflow = overflow
 
   return assets
 }
@@ -48,11 +50,6 @@ function transfer (assets, payments, transaction_data) {
       return false
     }
 
-    if (!payment.amount) {
-      debug('payment.amount === 0 before paying it, continue')
-      continue
-    }
-
     if (payment.input >= transaction_data.vin.length) {
       return false
     }
@@ -61,14 +58,18 @@ function transfer (assets, payments, transaction_data) {
       return false
     }
 
+    if (!payment.amount) {
+      debug('payment.amount === 0 before paying it, continue')
+      continue
+    }
+
     if (currentInputIndex < payment.input) {
       currentInputIndex = payment.input
       currentAssetIndex = 0
     }
 
     if (currentInputIndex >= _inputs.length || !_inputs[currentInputIndex].assets || currentAssetIndex >= _inputs[currentInputIndex].assets.length || !_inputs[currentInputIndex].assets[currentAssetIndex]) {
-      debug('no asset in current asset index in current input index, overflow')
-      transaction_data.overflow = true
+      debug('no asset in input #' + currentInputIndex + ' asset #' + currentAssetIndex + ', overflow')
       return false
     }
 
@@ -81,7 +82,6 @@ function transfer (assets, payments, transaction_data) {
     if (samePayment) {
       if (!assets[payment.output].length || assets[payment.output][assets[payment.output].length - 1].assetId !== currentAsset.assetId || currentAsset.aggregationPolicy !== 'aggregatable') {
         debug('tried to pay same payment with a separate asset, overflow')
-        transaction_data.overflow = true
         return false
       }
       debug('aggregating ' + currentAmount + ' of asset ' + currentAsset.assetId + ' from input #' + currentInputIndex + ' asset #' + currentAssetIndex + ' to result index #' + payment.output)
