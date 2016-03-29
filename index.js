@@ -75,16 +75,16 @@ function transfer (assets, payments, transaction_data) {
 
     currentAsset = _inputs[currentInputIndex].assets[currentAssetIndex]
     currentAmount = Math.min(payment.amount, currentAsset.amount)
-    debug('paying ' + currentAmount + ' ' + currentAsset.assetId + ' from input #' + currentInputIndex + ' asset #' + currentAssetIndex + ' to result index #' + payment.output)
+    debug('paying ' + currentAmount + ' ' + currentAsset.assetId + ' from input #' + currentInputIndex + ' asset #' + currentAssetIndex + ' to output #' + payment.output)
 
     assets[payment.output] = assets[payment.output] || []
     debug('assets[' + payment.output + '] = ', assets[payment.output])
-    if (lastPaymentIndex == i) {
+    if (lastPaymentIndex === i) {
       if (!assets[payment.output].length || assets[payment.output][assets[payment.output].length - 1].assetId !== currentAsset.assetId || currentAsset.aggregationPolicy !== 'aggregatable') {
         debug('tried to pay same payment with a separate asset, overflow')
         return false
       }
-      debug('aggregating ' + currentAmount + ' of asset ' + currentAsset.assetId + ' from input #' + currentInputIndex + ' asset #' + currentAssetIndex + ' to result index #' + payment.output)
+      debug('aggregating ' + currentAmount + ' of asset ' + currentAsset.assetId + ' from input #' + currentInputIndex + ' asset #' + currentAssetIndex + ' to output #' + payment.output)
       assets[payment.output][assets[payment.output].length - 1].amount += currentAmount
     } else {
       assets[payment.output].push({
