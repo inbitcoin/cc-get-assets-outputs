@@ -42,7 +42,7 @@ function transfer (assets, payments, transaction_data) {
   var payment
   var currentAsset
   var currentAmount
-  var samePayment   // aggregate only if paying the same payment
+  var lastPaymentIndex   // aggregate only if paying the same payment
   for (var i = 0; i < _payments.length; i++) {
     payment = _payments[i]
     debug('payment = ', payment)
@@ -79,7 +79,7 @@ function transfer (assets, payments, transaction_data) {
 
     assets[payment.output] = assets[payment.output] || []
     debug('assets[' + payment.output + '] = ', assets[payment.output])
-    if (samePayment) {
+    if (lastPaymentIndex == i) {
       if (!assets[payment.output].length || assets[payment.output][assets[payment.output].length - 1].assetId !== currentAsset.assetId || currentAsset.aggregationPolicy !== 'aggregatable') {
         debug('tried to pay same payment with a separate asset, overflow')
         return false
@@ -108,12 +108,10 @@ function transfer (assets, payments, transaction_data) {
 
     debug('input #' + currentInputIndex + ', asset # ' + currentAssetIndex)
 
+    lastPaymentIndex = i
     if (payment.amount) {
       debug('payment not completed, stay on current payment')
-      samePayment = true
       i--
-    } else {
-      samePayment = false
     }
   }
 
