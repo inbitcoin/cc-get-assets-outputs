@@ -1,116 +1,155 @@
 var assetIdencoder = require('cc-assetid-encoder')
+var debug = require('debug')('cc-get-assets-outputs')
+var _ = require('lodash')
 
 module.exports = function (raw_transaction) {
   var transaction_data = JSON.parse(JSON.stringify(raw_transaction))
   var ccdata = transaction_data.ccdata[0]
   var assets = []
-  // var issuedassetid = null
-  /*var encodeItem = { assetid: 0, iputindex: 0, amountleft: 0 }*/
-  // is it an issuece
-  var empty_issuance = ccdata.type === 'issuance' && !ccdata.amount
   if (ccdata.type === 'issuance') {
-    // logger.debug('issuance!')
-    var opts = {
-      'cc_data': [{
-        type: 'issuance',
-        lockStatus: ccdata.lockStatus,
-        divisibility: ccdata.divisibility
-      }],
-      'vin': [{'txid': transaction_data.vin[0].txid, 'vout': transaction_data.vin[0].vout }]
-    }
-    if (!opts.cc_data[0].lockStatus) {
-      opts.vin[0].address = transaction_data.vin[0].previousOutput.addresses[0]
-    }
+    console.log('issuance !')
     transaction_data.vin[0].assets = transaction_data.vin[0].assets || []
     transaction_data.vin[0].assets.unshift({
-      assetId: assetIdencoder(opts),
+      assetId: assetIdencoder(transaction_data),
       amount: ccdata.amount,
       issueTxid: transaction_data.txid,
       divisibility: ccdata.divisibility,
-      lockStatus: ccdata.lockStatus
+      lockStatus: ccdata.lockStatus,
+      aggregationPolicy: ccdata.aggregationPolicy
     })
-    // console.log(transaction_data.vin[0].assets)
   }
 
-  var paymentIndex = 0
-  transaction_data.vin.forEach(function (prevOutput, currentIndex) {
-    var overflow = 0
-    prevOutput.assets = prevOutput.assets || []
-    prevOutput.assets.forEach(function (asset, assetIndex) {
-      var currentAmount = 0
-      var currentPayment = {}
+  var payments = ccdata.payments
+  var overflow = !transfer(assets, payments, transaction_data)
+  if (overflow) {
+    // transfer failed. transfer all assets in inputs to last output, aggregate those possible
+    assets.length = 0
+    transferToLastOutput(assets, transaction_data.vin, transaction_data.vout.length - 1)
+  }
 
-      // console.log(paymentIndex + " < " + ccdata.payments.length + " "  )
-      for (var i = paymentIndex;
-        i < ccdata.payments.length
-        && (currentAmount <= asset.amount)
-        && ccdata.payments[i].input <= currentIndex; paymentIndex++, i++) {
-        currentPayment = ccdata.payments[i]
-        var actualAmount = overflow ? overflow : currentPayment.amount
-        overflow = 0
-        // console.log("checking for asset with amount at: " + currentPayment.output + "  " + currentPayment.amount)
-        if (isPaymentSimple(currentPayment)) {
-          // console.log("paymet is simple")
-          if (isInOutputsScope(currentPayment.output, transaction_data.vout)) {
-            // console.log("output in scope")
-            if (!assets[currentPayment.output]) assets[currentPayment.output] = []
-            // console.log("found and asset with amount at: " + currentPayment.output + "  " +actualAmount)
+  raw_transaction.overflow = overflow
 
-            // console.log(ccdata.payments)
-            assets[currentPayment.output].push({
-              assetId: asset.assetId,
-              amount: (actualAmount + currentAmount > asset.amount) ? (asset.amount - currentAmount) : actualAmount,
-              issueTxid: asset.issueTxid,
-              divisibility: asset.divisibility,
-              lockStatus: asset.lockStatus
-            })
-            currentAmount += actualAmount
-          }
-        } else if (isPaymentRange(currentPayment)) {
-          // currentPayment.output
-        }
-      }
-      // check leftovers and throw them to the last aoutput
-      if (currentAmount < asset.amount) {
-        // console.log("found change ")
-        if (isPaymentSimple(currentPayment)) {
-          if (!assets[transaction_data.vout.length - 1]) { // put chnage in last output
-            assets[transaction_data.vout.length - 1] = []
-          }
-          assets[transaction_data.vout.length - 1].push({
-            assetId: asset.assetId,
-            amount: asset.amount - currentAmount,
-            issueTxid: asset.issueTxid,
-            divisibility: asset.divisibility,
-            lockStatus: asset.lockStatus
-          })
-        }
-      }
-   // set overflow so we take the next asset if we need to
-      if (currentAmount > asset.amount) {
-        overflow = currentAmount - asset.amount
-        paymentIndex--
-      }
-      else overflow = 0
-    })
-    if (overflow) {
-      raw_transaction.overflow = true
-    }
-  }) // prev_outputs.forEach
-  assets = assets.map(function (output_assets) {
-    return output_assets.filter(function (asset) { return asset.amount > 0 || empty_issuance})
-  })
   return assets
+}
+
+// returns true if succeeds to apply payments to the given assets array, false if runs into an invalid payment
+function transfer (assets, payments, transaction_data) {
+  debug('transfer')
+  var _payments = _.cloneDeep(payments)
+  var _inputs = _.cloneDeep(transaction_data.vin)
+  var currentInputIndex = 0
+  var currentAssetIndex = 0
+  var payment
+  var currentAsset
+  var currentAmount
+  var lastPaymentIndex   // aggregate only if paying the same payment
+  for (var i = 0; i < _payments.length; i++) {
+    payment = _payments[i]
+    debug('payment = ', payment)
+    if (!isPaymentSimple(payment)) {
+      return false
+    }
+
+    if (payment.input >= transaction_data.vin.length) {
+      return false
+    }
+
+    if (payment.output >= transaction_data.vout.length) {
+      return false
+    }
+
+    if (!payment.amount) {
+      debug('payment.amount === 0 before paying it, continue')
+      continue
+    }
+
+    if (currentInputIndex < payment.input) {
+      currentInputIndex = payment.input
+      currentAssetIndex = 0
+    }
+
+    if (currentInputIndex >= _inputs.length || !_inputs[currentInputIndex].assets || currentAssetIndex >= _inputs[currentInputIndex].assets.length || !_inputs[currentInputIndex].assets[currentAssetIndex]) {
+      debug('no asset in input #' + currentInputIndex + ' asset #' + currentAssetIndex + ', overflow')
+      return false
+    }
+
+    currentAsset = _inputs[currentInputIndex].assets[currentAssetIndex]
+    currentAmount = Math.min(payment.amount, currentAsset.amount)
+    debug('paying ' + currentAmount + ' ' + currentAsset.assetId + ' from input #' + currentInputIndex + ' asset #' + currentAssetIndex + ' to output #' + payment.output)
+
+    assets[payment.output] = assets[payment.output] || []
+    debug('assets[' + payment.output + '] = ', assets[payment.output])
+    if (lastPaymentIndex === i) {
+      if (!assets[payment.output].length || assets[payment.output][assets[payment.output].length - 1].assetId !== currentAsset.assetId || currentAsset.aggregationPolicy !== 'aggregatable') {
+        debug('tried to pay same payment with a separate asset, overflow')
+        return false
+      }
+      debug('aggregating ' + currentAmount + ' of asset ' + currentAsset.assetId + ' from input #' + currentInputIndex + ' asset #' + currentAssetIndex + ' to output #' + payment.output)
+      assets[payment.output][assets[payment.output].length - 1].amount += currentAmount
+    } else {
+      assets[payment.output].push({
+        assetId: currentAsset.assetId,
+        amount: currentAmount,
+        issueTxid: currentAsset.issueTxid,
+        divisibility: currentAsset.divisibility,
+        lockStatus: currentAsset.lockStatus,
+        aggregationPolicy: currentAsset.aggregationPolicy
+      })
+    }
+    currentAsset.amount -= currentAmount
+    payment.amount -= currentAmount
+    if (currentAsset.amount === 0) {
+      currentAssetIndex++
+      while (currentInputIndex < _inputs.length && currentAssetIndex > _inputs[currentInputIndex].assets.length - 1) {
+        currentAssetIndex = 0
+        currentInputIndex++
+      }
+    }
+
+    debug('input #' + currentInputIndex + ', asset # ' + currentAssetIndex)
+
+    lastPaymentIndex = i
+    if (payment.amount) {
+      debug('payment not completed, stay on current payment')
+      i--
+    }
+  }
+
+  // finished paying explicit payments, transfer all assets with remaining amount from inputs to last output. aggregate if possible.
+  transferToLastOutput(assets, _inputs, transaction_data.vout.length - 1)
+
+  return true
+}
+
+// transfer all positive amount assets from inputs to last output. aggregate if possible.
+function transferToLastOutput (assets, inputs, lastOutputIndex) {
+  var assetsToTransfer = []
+  inputs.forEach(function (input) {
+    assetsToTransfer = _.concat(assetsToTransfer, input.assets)
+  })
+  var assetsIndexes = {}
+  var lastOutputAssets = []
+  assetsToTransfer.forEach(function (asset, index) {
+    if (asset.aggregationPolicy === 'aggregatable' && (typeof assetsIndexes[asset.assetId] !== 'undefined')) {
+      lastOutputAssets[assetsIndexes[asset.assetId]].amount += asset.amount
+    } else if (asset.amount > 0) {
+      if (typeof assetsIndexes[asset.assetId] === 'undefined') {
+        assetsIndexes[asset.assetId] = lastOutputAssets.length
+      }
+      lastOutputAssets.push({
+        assetId: asset.assetId,
+        amount: asset.amount,
+        issueTxid: asset.issueTxid,
+        divisibility: asset.divisibility,
+        lockStatus: asset.lockStatus,
+        aggregationPolicy: asset.aggregationPolicy
+      })
+    }
+  })
+
+  assets[lastOutputIndex] = _.concat((assets[lastOutputIndex] || []), lastOutputAssets)
 }
 
 function isPaymentSimple (payment) {
   return (!payment.range && !payment.percent)
-}
-
-function isPaymentRange (payment) {
-  return payment.range
-}
-
-function isInOutputsScope (i, vout) {
-  return i <= vout.length - 1
 }

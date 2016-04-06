@@ -4,11 +4,15 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "mocha",
+    "coverage": "istanbul cover _mocha -- -R spec",
+    "coveralls": "cat ./coverage/lcov.info | coveralls"
   },
   "author": "thehobbit85 <thehobbit85@gmail.com>",
   "license": "ISC",
   "dependencies": {
-    "cc-assetid-encoder": "^0.4.3"
+    "cc-assetid-encoder": "^0.6.0",
+    "debug": "^2.2.0",
+    "lodash": "^4.6.1"
   }
 }
