@@ -13,7 +13,7 @@
   "author": "inbitcoin s.r.l.",
   "license": "Apache-2.0",
   "dependencies": {
-    "cc-assetid-encoder": "^0.6.0",
+    "cc-assetid-encoder": "git://github.com/inbitcoin/AssetId.git#v0.6.3",
     "debug": "^2.2.0",
     "lodash": "^4.6.1"
   },
